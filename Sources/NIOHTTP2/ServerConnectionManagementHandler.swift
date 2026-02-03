@@ -12,6 +12,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+/*
+ * Copyright 2024, gRPC Authors All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import NIOCore
 import NIOTLS
 
@@ -125,55 +141,26 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
         }
     }
 
-    /// Stats about recently written frames. Used to determine whether to reset keep-alive state.
-    var frameStats: FrameStats
-
-    struct FrameStats {
-        private(set) var didWriteHeadersOrData = false
-
-        /// Mark that a HEADERS frame has been written.
-        mutating func wroteHeaders() {
-            self.didWriteHeadersOrData = true
-        }
-
-        /// Mark that DATA frame has been written.
-        mutating func wroteData() {
-            self.didWriteHeadersOrData = true
-        }
-
-        /// Resets the state such that no HEADERS or DATA frames have been written.
-        mutating func reset() {
-            self.didWriteHeadersOrData = false
-        }
-    }
-
-    /// A synchronous view over this handler.
-    public var syncView: SyncView {
-        SyncView(self)
-    }
-
-    /// A synchronous view over this handler.
+    /// Configuration for HTTP/2 keep-alive ping behavior.
     ///
-    /// Methods on this view *must* be called from the same `EventLoop` as the `Channel` in which
-    /// this handler exists.
-    public struct SyncView: NIOHTTP2FrameDelegate {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    /// Keep-alive pings verify that the client is still responsive by periodically sending pings and expecting
+    /// acknowledgements. If the client responds within the specified timeout, the connection remains open. Otherwise,
+    /// the connection is shut down.
+    public struct KeepaliveConfiguration: Sendable, Hashable {
+        /// The amount of time to wait after reading data before sending a keep-alive ping.
+        public var pingInterval: TimeAmount
 
-        fileprivate init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
-        }
+        /// The amount of time the client has to reply after the server sends a keep-alive ping to keep the connection
+        /// open. The connection is closed if no reply is received.
+        public var ackTimeout: TimeAmount
 
-        /// Notify the handler that an HTTP/2 frame was written.
-        public func wroteFrame(_ frame: HTTP2Frame) {
-            // Only interested in HEADERS and DATA frames.
-            switch frame.payload {
-            case .headers:
-                self.handler.frameStats.wroteHeaders()
-            case .data:
-                self.handler.frameStats.wroteData()
-            default:
-                ()
-            }
+        /// - Parameters:
+        ///   - pingInterval: The amount of time to wait after reading data before sending a keep-alive ping.
+        ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to keep
+        ///     the connection open. The connection is closed if no reply is received.
+        public init(pingInterval: TimeAmount, ackTimeout: TimeAmount = .seconds(20)) {
+            self.pingInterval = pingInterval
+            self.ackTimeout = ackTimeout
         }
     }
 
@@ -181,22 +168,21 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     ///
     /// - Parameters:
     ///   - eventLoop: The `EventLoop` of the `Channel` this handler is placed in.
-    ///   - maxIdleTime: The maximum amount time a connection may be idle for before being closed.
-    ///   - maxAge: The maximum amount of time a connection may exist before being gracefully closed.
-    ///   - maxGraceTime: The maximum amount of time that the connection has to close gracefully.
-    ///   - keepaliveTime: The amount of time to wait after reading data before sending a keep-alive
-    ///       ping.
-    ///   - keepaliveTimeout: The amount of time the client has to reply after the server sends a
-    ///       keep-alive ping to keep the connection open. The connection is closed if no reply
-    ///       is received.
+    ///   - maxIdleTime: The maximum amount of time a connection may be idle for before being closed. When `nil`,
+    ///     connections can remain idle indefinitely.
+    ///   - maxAge: The maximum amount of time a connection may exist before being gracefully closed. When `nil`,
+    ///     connections can live indefinitely.
+    ///   - maxGraceTime: The maximum amount of time that the connection has to close gracefully. When `nil`, no time
+    ///     limit is enforced for active streams to finish during graceful shutdown.
+    ///   - keepaliveConfiguration: Configuration for keep-alive ping behavior. Defaults to `nil`, disabling keep-alive
+    ///     pings.
     ///   - clock: A clock providing the current time.
     public init(
         eventLoop: any EventLoop,
         maxIdleTime: TimeAmount?,
         maxAge: TimeAmount?,
         maxGraceTime: TimeAmount?,
-        keepaliveTime: TimeAmount?,
-        keepaliveTimeout: TimeAmount?,
+        keepaliveConfiguration: KeepaliveConfiguration?,
         clock: Clock = .nio
     ) {
         self.eventLoop = eventLoop
@@ -210,7 +196,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
         self.flushPending = false
         self.inReadLoop = false
         self.clock = clock
-        self.frameStats = FrameStats()
 
         if let maxIdleTime {
             self.maxIdleTimerHandler = Timer(
@@ -236,17 +221,17 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
                 handler: MaxGraceTimerHandlerView(self)
             )
         }
-        if let keepaliveTime {
-            let keepaliveTimeout = keepaliveTimeout ?? .seconds(20)
+
+        if let keepaliveConfiguration {
             self.keepaliveTimerHandler = Timer(
                 eventLoop: eventLoop,
-                duration: keepaliveTime,
+                duration: keepaliveConfiguration.pingInterval,
                 repeating: false,
                 handler: KeepaliveTimerHandlerView(self)
             )
             self.keepaliveTimeoutHandler = Timer(
                 eventLoop: eventLoop,
-                duration: keepaliveTimeout,
+                duration: keepaliveConfiguration.ackTimeout,
                 repeating: false,
                 handler: KeepaliveTimeoutHandlerView(self)
             )

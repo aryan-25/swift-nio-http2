@@ -12,6 +12,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+/*
+ * Copyright 2024, gRPC Authors All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import NIOCore
 import NIOEmbedded
 import NIOHPACK
@@ -135,8 +151,10 @@ struct NIOHTTP2ServerConnectionManagementHandlerTests {
     @Test("Keepalive works on new connection")
     func keepaliveOnNewConnection() throws {
         let connection = try Connection(
-            keepaliveTime: .minutes(5),
-            keepaliveTimeout: .seconds(5)
+            keepaliveConfiguration: .init(
+                pingInterval: .minutes(5),
+                ackTimeout: .seconds(5)
+            )
         )
         try connection.activate()
 
@@ -158,8 +176,10 @@ struct NIOHTTP2ServerConnectionManagementHandlerTests {
     @Test("Keepalive starts after read loop")
     func keepaliveStartsAfterReadLoop() throws {
         let connection = try Connection(
-            keepaliveTime: .minutes(5),
-            keepaliveTimeout: .seconds(5)
+            keepaliveConfiguration: .init(
+                pingInterval: .minutes(5),
+                ackTimeout: .seconds(5)
+            )
         )
         try connection.activate()
 
@@ -186,8 +206,10 @@ struct NIOHTTP2ServerConnectionManagementHandlerTests {
     @Test("Keepalive works on new connection without response")
     func keepaliveOnNewConnectionWithoutResponse() throws {
         let connection = try Connection(
-            keepaliveTime: .minutes(5),
-            keepaliveTimeout: .seconds(5)
+            keepaliveConfiguration: .init(
+                pingInterval: .minutes(5),
+                ackTimeout: .seconds(5)
+            )
         )
         try connection.activate()
 
@@ -287,8 +309,6 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
     struct Connection {
         let channel: EmbeddedChannel
         let streamDelegate: any NIOHTTP2StreamDelegate
-        let frameDelegate: any NIOHTTP2FrameDelegate
-        let syncView: NIOHTTP2ServerConnectionManagementHandler.SyncView
 
         var loop: EmbeddedEventLoop {
             self.channel.embeddedEventLoop
@@ -300,8 +320,7 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
             maxIdleTime: TimeAmount? = nil,
             maxAge: TimeAmount? = nil,
             maxGraceTime: TimeAmount? = nil,
-            keepaliveTime: TimeAmount? = nil,
-            keepaliveTimeout: TimeAmount? = nil,
+            keepaliveConfiguration: NIOHTTP2ServerConnectionManagementHandler.KeepaliveConfiguration? = nil,
             manualClock: Bool = false
         ) throws {
             if manualClock {
@@ -316,14 +335,11 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
                 maxIdleTime: maxIdleTime,
                 maxAge: maxAge,
                 maxGraceTime: maxGraceTime,
-                keepaliveTime: keepaliveTime,
-                keepaliveTimeout: keepaliveTimeout,
+                keepaliveConfiguration: keepaliveConfiguration,
                 clock: self.clock
             )
 
             self.streamDelegate = handler.http2StreamDelegate
-            self.frameDelegate = handler.syncView
-            self.syncView = handler.syncView
             self.channel = EmbeddedChannel(handler: handler, loop: loop)
         }
 
