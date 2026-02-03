@@ -189,8 +189,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     ///   - keepaliveTimeout: The amount of time the client has to reply after the server sends a
     ///       keep-alive ping to keep the connection open. The connection is closed if no reply
     ///       is received.
-    ///   - requireALPN: Whether ALPN is required. If set to `true` and the TLS handshake finished without negotiating
-    ///       a protocol, an error will be fired down the pipeline and the channel will be closed.
     ///   - clock: A clock providing the current time.
     public init(
         eventLoop: any EventLoop,
