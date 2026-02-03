@@ -928,6 +928,39 @@ extension ChannelPipeline.SynchronousOperations {
     }
 
     @inlinable
+    @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
+    public func configureAsyncHTTP2Pipeline<Output: Sendable>(
+        mode: NIOHTTP2Handler.ParserMode,
+        connectionManager: NIOHTTP2ServerConnectionManagementHandler,
+        configuration: NIOHTTP2Handler.Configuration = NIOHTTP2Handler.Configuration(),
+        streamInitializer: @escaping NIOChannelInitializerWithOutput<Output>
+    ) throws -> NIOHTTP2Handler.AsyncStreamMultiplexer<Output> {
+        let handler = NIOHTTP2Handler(
+            mode: mode,
+            eventLoop: self.eventLoop,
+            connectionConfiguration: configuration.connection,
+            streamConfiguration: configuration.stream,
+            streamDelegate: connectionManager.http2StreamDelegate,
+            frameDelegate: connectionManager.syncView,
+            inboundStreamInitializerWithAnyOutput: { channel in
+                streamInitializer(channel).map { $0 }
+            }
+        )
+
+        try self.addHandler(handler)
+        try self.addHandler(connectionManager)
+
+        let (inboundStreamChannels, continuation) = NIOHTTP2AsyncSequence.initialize(
+            inboundStreamInitializerOutput: Output.self
+        )
+
+        return try handler.syncAsyncStreamMultiplexer(
+            continuation: continuation,
+            inboundStreamChannels: inboundStreamChannels
+        )
+    }
+
+    @inlinable
     func configureHTTP2AsyncSecureUpgrade<HTTP1Output: Sendable, HTTP2Output: Sendable>(
         on channel: any Channel,
         http1ConnectionInitializer: @escaping NIOChannelInitializerWithOutput<HTTP1Output>,
