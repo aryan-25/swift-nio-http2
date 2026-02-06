@@ -95,7 +95,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     /// While NIO's `EmbeddedEventLoop` provides control over its view of time (and therefore any
     /// events scheduled on it) it doesn't offer a way to get the current time. This is usually done
     /// via `NIODeadline`.
-    public struct Clock {
+    struct Clock {
         enum Base {
             case nio
             case manual(Manual)
@@ -141,26 +141,64 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
         }
     }
 
-    /// Configuration for HTTP/2 keep-alive ping behavior.
-    ///
-    /// Keep-alive pings verify that the client is still responsive by periodically sending pings and expecting
-    /// acknowledgements. If the client responds within the specified timeout, the connection remains open. Otherwise,
-    /// the connection is shut down.
-    public struct KeepaliveConfiguration: Sendable, Hashable {
-        /// The amount of time to wait after reading data before sending a keep-alive ping.
-        public var pingInterval: TimeAmount
+    /// Configuration parameters for ``NIOHTTP2ServerConnectionManagementHandler``.
+    public struct Configuration: Sendable {
+        /// The maximum amount of time a connection may be idle for before being closed. When `nil`, connections can
+        /// remain idle indefinitely.
+        public var maxIdleTime: TimeAmount?
 
-        /// The amount of time the client has to reply after the server sends a keep-alive ping to keep the connection
-        /// open. The connection is closed if no reply is received.
-        public var ackTimeout: TimeAmount
+        /// The maximum amount of time a connection may exist before being gracefully closed. When `nil`, connections
+        /// can live indefinitely.
+        public var maxAge: TimeAmount?
+
+        /// The maximum amount of time that the connection has to close gracefully. When `nil`, no time
+        /// limit is enforced for active streams to finish during graceful shutdown.
+        public var maxGraceTime: TimeAmount?
+
+        /// Configuration for keep-alive ping behavior. Defaults to `nil`, disabling keep-alive pings.
+        public var keepalive: Keepalive?
+
+        /// Configuration for HTTP/2 keep-alive ping behavior.
+        ///
+        /// Keep-alive pings verify that the client is still responsive by periodically sending pings and expecting
+        /// acknowledgements. If the client responds within the specified timeout, the connection remains open. Otherwise,
+        /// the connection is shut down.
+        public struct Keepalive: Sendable, Hashable {
+            /// The amount of time to wait after reading data before sending a keep-alive ping.
+            public var pingInterval: TimeAmount
+
+            /// The amount of time the client has to reply after the server sends a keep-alive ping to keep the connection
+            /// open. The connection is closed if no reply is received.
+            public var ackTimeout: TimeAmount
+
+            /// - Parameters:
+            ///   - pingInterval: The amount of time to wait after reading data before sending a keep-alive ping.
+            ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to keep
+            ///     the connection open. The connection is closed if no reply is received.
+            public init(pingInterval: TimeAmount, ackTimeout: TimeAmount = .seconds(20)) {
+                self.pingInterval = pingInterval
+                self.ackTimeout = ackTimeout
+            }
+        }
 
         /// - Parameters:
-        ///   - pingInterval: The amount of time to wait after reading data before sending a keep-alive ping.
-        ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to keep
-        ///     the connection open. The connection is closed if no reply is received.
-        public init(pingInterval: TimeAmount, ackTimeout: TimeAmount = .seconds(20)) {
-            self.pingInterval = pingInterval
-            self.ackTimeout = ackTimeout
+        ///   - maxIdleTime: The maximum amount of time a connection may be idle for before being closed. When `nil`,
+        ///     connections can remain idle indefinitely.
+        ///   - maxAge: The maximum amount of time a connection may exist before being gracefully closed. When `nil`,
+        ///     connections can live indefinitely.
+        ///   - maxGraceTime: The maximum amount of time that the connection has to close gracefully. When `nil`, no
+        ///     time limit is enforced for active streams to finish during graceful shutdown.
+        ///   - keepalive: Configuration for keep-alive ping behavior. Defaults to `nil`, disabling keep-alive pings.
+        public init(
+            maxIdleTime: TimeAmount?,
+            maxAge: TimeAmount?,
+            maxGraceTime: TimeAmount?,
+            keepalive: Keepalive?
+        ) {
+            self.maxIdleTime = maxIdleTime
+            self.maxAge = maxAge
+            self.maxGraceTime = maxGraceTime
+            self.keepalive = keepalive
         }
     }
 
@@ -168,23 +206,8 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     ///
     /// - Parameters:
     ///   - eventLoop: The `EventLoop` of the `Channel` this handler is placed in.
-    ///   - maxIdleTime: The maximum amount of time a connection may be idle for before being closed. When `nil`,
-    ///     connections can remain idle indefinitely.
-    ///   - maxAge: The maximum amount of time a connection may exist before being gracefully closed. When `nil`,
-    ///     connections can live indefinitely.
-    ///   - maxGraceTime: The maximum amount of time that the connection has to close gracefully. When `nil`, no time
-    ///     limit is enforced for active streams to finish during graceful shutdown.
-    ///   - keepaliveConfiguration: Configuration for keep-alive ping behavior. Defaults to `nil`, disabling keep-alive
-    ///     pings.
-    ///   - clock: A clock providing the current time.
-    public init(
-        eventLoop: any EventLoop,
-        maxIdleTime: TimeAmount?,
-        maxAge: TimeAmount?,
-        maxGraceTime: TimeAmount?,
-        keepaliveConfiguration: KeepaliveConfiguration?,
-        clock: Clock = .nio
-    ) {
+    ///   - configuration: Configuration parameters for managing the connection lifecycle.
+    public init(eventLoop: any EventLoop, configuration: Configuration) {
         self.eventLoop = eventLoop
 
         // Generate a random value to be used as keep alive ping data.
@@ -195,9 +218,9 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
 
         self.flushPending = false
         self.inReadLoop = false
-        self.clock = clock
+        self.clock = .nio
 
-        if let maxIdleTime {
+        if let maxIdleTime = configuration.maxIdleTime {
             self.maxIdleTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxIdleTime,
@@ -205,7 +228,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
                 handler: MaxIdleTimerHandlerView(self)
             )
         }
-        if let maxAge {
+        if let maxAge = configuration.maxAge {
             self.maxAgeTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxAge,
@@ -213,7 +236,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
                 handler: MaxAgeTimerHandlerView(self)
             )
         }
-        if let maxGraceTime {
+        if let maxGraceTime = configuration.maxGraceTime {
             self.maxGraceTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxGraceTime,
@@ -222,7 +245,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             )
         }
 
-        if let keepaliveConfiguration {
+        if let keepaliveConfiguration = configuration.keepalive {
             self.keepaliveTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: keepaliveConfiguration.pingInterval,

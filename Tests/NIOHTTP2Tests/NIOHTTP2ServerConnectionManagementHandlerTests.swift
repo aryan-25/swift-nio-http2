@@ -320,7 +320,7 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
             maxIdleTime: TimeAmount? = nil,
             maxAge: TimeAmount? = nil,
             maxGraceTime: TimeAmount? = nil,
-            keepaliveConfiguration: NIOHTTP2ServerConnectionManagementHandler.KeepaliveConfiguration? = nil,
+            keepaliveConfiguration: NIOHTTP2ServerConnectionManagementHandler.Configuration.Keepalive? = nil,
             manualClock: Bool = false
         ) throws {
             if manualClock {
@@ -332,11 +332,12 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
             let loop = EmbeddedEventLoop()
             let handler = NIOHTTP2ServerConnectionManagementHandler(
                 eventLoop: loop,
-                maxIdleTime: maxIdleTime,
-                maxAge: maxAge,
-                maxGraceTime: maxGraceTime,
-                keepaliveConfiguration: keepaliveConfiguration,
-                clock: self.clock
+                configuration: .init(
+                    maxIdleTime: maxIdleTime,
+                    maxAge: maxAge,
+                    maxGraceTime: maxGraceTime,
+                    keepalive: keepaliveConfiguration
+                )
             )
 
             self.streamDelegate = handler.http2StreamDelegate

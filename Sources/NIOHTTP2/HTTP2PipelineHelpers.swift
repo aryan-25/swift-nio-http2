@@ -941,9 +941,9 @@ extension ChannelPipeline.SynchronousOperations {
     ///
     /// - Parameters:
     ///   - mode: The mode this pipeline will operate in, server or client.
-    ///   - connectionManager: A ``NIOHTTP2ServerConnectionManagementHandler`` instance to use alongised the
-    ///   ``NIOHTTP2Handler``.
-    ///   - configuration: The settings that will be used when establishing the connection and new streams.
+    ///   - connectionManagerConfiguration: The configuration for a ``NIOHTTP2ServerConnectionManagementHandler``
+    ///     instance that will be initialized and used alongside the ``NIOHTTP2Handler``.
+    ///   - http2HandlerConfiguration: The settings that will be used when establishing the connection and new streams.
     ///   - streamInitializer: A closure that will be called whenever the remote peer initiates a new stream.
     ///     The output of this closure is the element type of the returned multiplexer
     /// - Returns: An `EventLoopFuture` containing the `AsyncStreamMultiplexer` inserted into this pipeline, which can
@@ -952,15 +952,20 @@ extension ChannelPipeline.SynchronousOperations {
     @available(macOS 10.15, iOS 13.0, watchOS 6.0, tvOS 13.0, *)
     public func configureAsyncHTTP2Pipeline<Output: Sendable>(
         mode: NIOHTTP2Handler.ParserMode,
-        connectionManager: NIOHTTP2ServerConnectionManagementHandler,
-        configuration: NIOHTTP2Handler.Configuration = NIOHTTP2Handler.Configuration(),
+        connectionManagerConfiguration: NIOHTTP2ServerConnectionManagementHandler.Configuration,
+        http2HandlerConfiguration: NIOHTTP2Handler.Configuration = NIOHTTP2Handler.Configuration(),
         streamInitializer: @escaping NIOChannelInitializerWithOutput<Output>
     ) throws -> NIOHTTP2Handler.AsyncStreamMultiplexer<Output> {
+        let connectionManager = NIOHTTP2ServerConnectionManagementHandler(
+            eventLoop: self.eventLoop,
+            configuration: connectionManagerConfiguration
+        )
+
         let handler = NIOHTTP2Handler(
             mode: mode,
             eventLoop: self.eventLoop,
-            connectionConfiguration: configuration.connection,
-            streamConfiguration: configuration.stream,
+            connectionConfiguration: http2HandlerConfiguration.connection,
+            streamConfiguration: http2HandlerConfiguration.stream,
             streamDelegate: connectionManager.http2StreamDelegate,
             frameDelegate: nil,
             inboundStreamInitializerWithAnyOutput: { channel in
