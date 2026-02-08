@@ -384,68 +384,63 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
 
 // Timer handler views.
 extension NIOHTTP2ServerConnectionManagementHandler {
-    struct MaxIdleTimerHandlerView: @unchecked Sendable, NIOScheduledCallbackHandler {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    struct MaxIdleTimerHandlerView: Sendable, NIOScheduledCallbackHandler {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         func handleScheduledCallback(eventLoop: some EventLoop) {
-            self.handler.eventLoop.assertInEventLoop()
-            self.handler.initiateGracefulShutdown()
+            self.handler.value.initiateGracefulShutdown()
         }
     }
 
-    struct MaxAgeTimerHandlerView: @unchecked Sendable, NIOScheduledCallbackHandler {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    struct MaxAgeTimerHandlerView: Sendable, NIOScheduledCallbackHandler {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         func handleScheduledCallback(eventLoop: some EventLoop) {
-            self.handler.eventLoop.assertInEventLoop()
-            self.handler.initiateGracefulShutdown()
+            self.handler.value.initiateGracefulShutdown()
         }
     }
 
-    struct MaxGraceTimerHandlerView: @unchecked Sendable, NIOScheduledCallbackHandler {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    struct MaxGraceTimerHandlerView: Sendable, NIOScheduledCallbackHandler {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         func handleScheduledCallback(eventLoop: some EventLoop) {
-            self.handler.eventLoop.assertInEventLoop()
-            self.handler.context?.close(promise: nil)
+            self.handler.value.context?.close(promise: nil)
         }
     }
 
-    struct KeepaliveTimerHandlerView: @unchecked Sendable, NIOScheduledCallbackHandler {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    struct KeepaliveTimerHandlerView: Sendable, NIOScheduledCallbackHandler {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         func handleScheduledCallback(eventLoop: some EventLoop) {
-            self.handler.eventLoop.assertInEventLoop()
-            self.handler.keepaliveTimerFired()
+            self.handler.value.keepaliveTimerFired()
         }
     }
 
-    struct KeepaliveTimeoutHandlerView: @unchecked Sendable, NIOScheduledCallbackHandler {
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    struct KeepaliveTimeoutHandlerView: Sendable, NIOScheduledCallbackHandler {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         func handleScheduledCallback(eventLoop: some EventLoop) {
-            self.handler.eventLoop.assertInEventLoop()
-            self.handler.initiateGracefulShutdown()
+            self.handler.value.initiateGracefulShutdown()
         }
     }
 }
