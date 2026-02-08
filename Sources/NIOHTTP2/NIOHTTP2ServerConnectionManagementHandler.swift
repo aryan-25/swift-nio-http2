@@ -447,13 +447,11 @@ extension NIOHTTP2ServerConnectionManagementHandler {
 
 extension NIOHTTP2ServerConnectionManagementHandler {
     /// A delegate for receiving HTTP/2 stream lifecycle events.
-    public struct HTTP2StreamDelegate: @unchecked Sendable, NIOHTTP2StreamDelegate {
-        // @unchecked is okay: the only methods do the appropriate event-loop dance.
-
-        private let handler: NIOHTTP2ServerConnectionManagementHandler
+    public struct HTTP2StreamDelegate: Sendable, NIOHTTP2StreamDelegate {
+        private let handler: NIOLoopBound<NIOHTTP2ServerConnectionManagementHandler>
 
         init(_ handler: NIOHTTP2ServerConnectionManagementHandler) {
-            self.handler = handler
+            self.handler = .init(handler, eventLoop: handler.eventLoop)
         }
 
         /// Notifies the handler that a new HTTP/2 stream was created.
@@ -462,10 +460,10 @@ extension NIOHTTP2ServerConnectionManagementHandler {
         ///   - channel: The channel on which the stream was created.
         public func streamCreated(_ id: HTTP2StreamID, channel: any Channel) {
             if self.handler.eventLoop.inEventLoop {
-                self.handler._streamCreated(id, channel: channel)
+                self.handler.value._streamCreated(id, channel: channel)
             } else {
                 self.handler.eventLoop.execute {
-                    self.handler._streamCreated(id, channel: channel)
+                    self.handler.value._streamCreated(id, channel: channel)
                 }
             }
         }
@@ -476,10 +474,10 @@ extension NIOHTTP2ServerConnectionManagementHandler {
         ///   - channel: The channel on which the stream was closed.
         public func streamClosed(_ id: HTTP2StreamID, channel: any Channel) {
             if self.handler.eventLoop.inEventLoop {
-                self.handler._streamClosed(id, channel: channel)
+                self.handler.value._streamClosed(id, channel: channel)
             } else {
                 self.handler.eventLoop.execute {
-                    self.handler._streamClosed(id, channel: channel)
+                    self.handler.value._streamClosed(id, channel: channel)
                 }
             }
         }
