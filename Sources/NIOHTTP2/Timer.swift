@@ -31,15 +31,12 @@
 import NIOCore
 
 /// A timer backed by `NIOScheduledCallback`.
-final class Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable {
+struct Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable {
     /// The event loop on which to run this timer.
     private let eventLoop: any EventLoop
 
     /// The duration of the timer.
     private let duration: TimeAmount
-
-    /// Whether this timer should repeat.
-    private let repeating: Bool
 
     /// The handler to call when the timer fires.
     private let handler: Handler
@@ -47,10 +44,9 @@ final class Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable 
     /// The currently scheduled callback if the timer is running.
     private var scheduledCallback: NIOScheduledCallback?
 
-    init(eventLoop: any EventLoop, duration: TimeAmount, repeating: Bool, handler: Handler) {
+    init(eventLoop: any EventLoop, duration: TimeAmount, handler: Handler) {
         self.eventLoop = eventLoop
         self.duration = duration
-        self.repeating = repeating
         self.handler = handler
         self.scheduledCallback = nil
     }
@@ -63,7 +59,7 @@ final class Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable 
     }
 
     /// Start or restart the timer.
-    func start() {
+    mutating func start() {
         self.eventLoop.assertInEventLoop()
         self.scheduledCallback?.cancel()
         // Only throws if the event loop is shutting down, so we'll just swallow the error here.
@@ -71,13 +67,12 @@ final class Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable 
     }
 }
 
-extension Timer: NIOScheduledCallbackHandler, @unchecked Sendable where Handler: Sendable {
+extension Timer: NIOScheduledCallbackHandler, Sendable where Handler: Sendable {
     /// For repeated timer support, the timer itself proxies the callback and restarts the timer.
     ///
     /// - NOTE: Users should not call this function directly.
     func handleScheduledCallback(eventLoop: some EventLoop) {
         self.eventLoop.assertInEventLoop()
         self.handler.handleScheduledCallback(eventLoop: eventLoop)
-        if self.repeating { self.start() }
     }
 }

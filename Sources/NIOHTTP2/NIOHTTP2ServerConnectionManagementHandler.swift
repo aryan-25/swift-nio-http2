@@ -224,7 +224,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.maxIdleTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxIdleTime,
-                repeating: false,
                 handler: MaxIdleTimerHandlerView(self)
             )
         }
@@ -232,7 +231,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.maxAgeTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxAge,
-                repeating: false,
                 handler: MaxAgeTimerHandlerView(self)
             )
         }
@@ -240,7 +238,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.maxGraceTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: maxGraceTime,
-                repeating: false,
                 handler: MaxGraceTimerHandlerView(self)
             )
         }
@@ -249,13 +246,11 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.keepaliveTimerHandler = Timer(
                 eventLoop: eventLoop,
                 duration: keepaliveConfiguration.pingInterval,
-                repeating: false,
                 handler: KeepaliveTimerHandlerView(self)
             )
             self.keepaliveTimeoutHandler = Timer(
                 eventLoop: eventLoop,
                 duration: keepaliveConfiguration.ackTimeout,
-                repeating: false,
                 handler: KeepaliveTimeoutHandlerView(self)
             )
         }
