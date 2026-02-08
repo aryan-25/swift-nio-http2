@@ -257,7 +257,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     }
 
     public func handlerAdded(context: ChannelHandlerContext) {
-        assert(context.eventLoop === self.eventLoop)
+        context.eventLoop.preconditionInEventLoop()
         self.context = context
     }
 
