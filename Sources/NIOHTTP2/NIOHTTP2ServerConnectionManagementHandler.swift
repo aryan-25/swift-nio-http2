@@ -105,7 +105,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
 
         /// Returns the current time.
         /// - Returns: The current time as a `NIODeadline`.
-        public func now() -> NIODeadline {
+        func now() -> NIODeadline {
             switch self.base {
             case .nio:
                 return .now()
@@ -115,23 +115,23 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
         }
 
         /// Creates a clock using NIO's deadline mechanism.
-        public static var nio: Self {
+        static var nio: Self {
             Self(base: .nio)
         }
 
         /// Creates a clock with a manual time source for testing.
         /// - Parameter time: The manual time source.
         /// - Returns: A clock that uses the provided manual time source.
-        public static func manual(_ time: Manual) -> Self {
+        static func manual(_ time: Manual) -> Self {
             Self(base: .manual(time))
         }
 
         /// A manual clock for testing that allows explicit control over time.
-        public final class Manual {
+        final class Manual {
             private(set) var time: NIODeadline
 
             /// Creates a manual clock with time starting at zero.
-            public init() {
+            init() {
                 self.time = .uptimeNanoseconds(0)
             }
 
