@@ -31,7 +31,7 @@
 import NIOCore
 
 /// A timer backed by `NIOScheduledCallback`.
-struct Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable {
+struct Timer<Handler: NIOScheduledCallbackHandler>: Sendable where Handler: Sendable {
     /// The event loop on which to run this timer.
     private let eventLoop: any EventLoop
 
@@ -63,16 +63,6 @@ struct Timer<Handler: NIOScheduledCallbackHandler> where Handler: Sendable {
         self.eventLoop.assertInEventLoop()
         self.scheduledCallback?.cancel()
         // Only throws if the event loop is shutting down, so we'll just swallow the error here.
-        self.scheduledCallback = try? self.eventLoop.scheduleCallback(in: self.duration, handler: self)
-    }
-}
-
-extension Timer: NIOScheduledCallbackHandler, Sendable where Handler: Sendable {
-    /// For repeated timer support, the timer itself proxies the callback and restarts the timer.
-    ///
-    /// - NOTE: Users should not call this function directly.
-    func handleScheduledCallback(eventLoop: some EventLoop) {
-        self.eventLoop.assertInEventLoop()
-        self.handler.handleScheduledCallback(eventLoop: eventLoop)
+        self.scheduledCallback = try? self.eventLoop.scheduleCallback(in: self.duration, handler: self.handler)
     }
 }
