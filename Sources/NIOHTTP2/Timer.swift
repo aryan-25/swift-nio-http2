@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+// swift-format-ignore: NoBlockComments
 /*
  * Copyright 2024, gRPC Authors All rights reserved.
  *
