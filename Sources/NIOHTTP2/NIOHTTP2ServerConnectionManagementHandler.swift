@@ -216,7 +216,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             ///   - pingInterval: The amount of time to wait after reading data before sending a keep-alive ping.
             ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to
             ///     keep the connection open. The connection is closed if no reply is received.
-            public init(pingInterval: TimeAmount, ackTimeout: TimeAmount = .seconds(20)) {
+            public init(pingInterval: TimeAmount, ackTimeout: TimeAmount) {
                 self.pingInterval = pingInterval
                 self.ackTimeout = ackTimeout
             }
