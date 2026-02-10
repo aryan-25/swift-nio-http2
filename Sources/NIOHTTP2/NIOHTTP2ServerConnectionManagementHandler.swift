@@ -143,6 +143,46 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     }
 
     /// Configuration parameters for ``NIOHTTP2ServerConnectionManagementHandler``.
+    ///
+    /// This configuration provides several ways to manage the lifetime of HTTP/2 connections:
+    /// - When `maxIdleTime` is set, graceful shutdown will be triggered when the connection has had no active streams
+    ///   for the specified duration.
+    /// - When `maxAge` is set, graceful shutdown will be triggered when the connection has been alive for the specified
+    ///   duration.
+    /// - When `maxGraceTime` is set, the connection will be forcefully closed if active streams don't finish within the
+    ///   specified duration after graceful shutdown is triggered.
+    /// - When `keepalive` is set, clients will be periodically pinged to verify they're still responsive; unresponsive
+    ///   clients will trigger graceful connection closure.
+    ///
+    /// Each parameter is optional; when set to `nil`, that particular behavior is disabled.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// let configuration = NIOHTTP2ServerConnectionManagementHandler.Configuration(
+    ///     maxIdleTime: .minutes(5),
+    ///     maxAge: .hours(1),
+    ///     maxGraceTime: .seconds(20),
+    ///     keepalive: .init(pingInterval: .seconds(30), ackTimeout: .seconds(20))
+    /// )
+    /// ```
+    ///
+    /// This configuration:
+    /// - Closes idle connections after 5 minutes;
+    /// - Closes connections that have been active for 1 hour regardless of activity;
+    /// - Forces connection closure after 20 seconds if active streams haven't finished after graceful shutdown is
+    ///   triggered;
+    /// - Sends keep-alive pings every 30 seconds with a 20 second response timeout.
+    /// 
+    /// The created configuration can then be used to initialize a ``NIOHTTP2ServerConnectionManagementHandler``
+    /// instance:
+    ///
+    /// ```swift
+    /// let handler = NIOHTTP2ServerConnectionManagementHandler(
+    ///     eventLoop: eventLoop,
+    ///     configuration: configuration
+    /// )
+    /// ```
     public struct Configuration: Sendable {
         /// The maximum amount of time a connection may be idle for before being closed. When `nil`, connections can
         /// remain idle indefinitely.
@@ -162,20 +202,20 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
         /// Configuration for HTTP/2 keep-alive ping behavior.
         ///
         /// Keep-alive pings verify that the client is still responsive by periodically sending pings and expecting
-        /// acknowledgements. If the client responds within the specified timeout, the connection remains open. Otherwise,
-        /// the connection is shut down.
+        /// acknowledgements. If the client responds within the specified timeout, the connection remains open.
+        /// Otherwise, the connection is shut down.
         public struct Keepalive: Sendable, Hashable {
             /// The amount of time to wait after reading data before sending a keep-alive ping.
             public var pingInterval: TimeAmount
 
-            /// The amount of time the client has to reply after the server sends a keep-alive ping to keep the connection
-            /// open. The connection is closed if no reply is received.
+            /// The amount of time the client has to reply after the server sends a keep-alive ping to keep the
+            /// connection open. The connection is closed if no reply is received.
             public var ackTimeout: TimeAmount
 
             /// - Parameters:
             ///   - pingInterval: The amount of time to wait after reading data before sending a keep-alive ping.
-            ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to keep
-            ///     the connection open. The connection is closed if no reply is received.
+            ///   - ackTimeout: The amount of time the client has to reply after the server sends a keep-alive ping to
+            ///     keep the connection open. The connection is closed if no reply is received.
             public init(pingInterval: TimeAmount, ackTimeout: TimeAmount = .seconds(20)) {
                 self.pingInterval = pingInterval
                 self.ackTimeout = ackTimeout
