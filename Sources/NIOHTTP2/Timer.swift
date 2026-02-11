@@ -54,14 +54,12 @@ struct Timer<Handler: NIOScheduledCallbackHandler>: Sendable where Handler: Send
 
     /// Cancel the timer, if it is running.
     func cancel() {
-        self.eventLoop.assertInEventLoop()
         guard let scheduledCallback = self.scheduledCallback else { return }
         scheduledCallback.cancel()
     }
 
     /// Start or restart the timer.
     mutating func start() {
-        self.eventLoop.assertInEventLoop()
         self.scheduledCallback?.cancel()
         // Only throws if the event loop is shutting down, so we'll just swallow the error here.
         self.scheduledCallback = try? self.eventLoop.scheduleCallback(in: self.duration, handler: self.handler)
