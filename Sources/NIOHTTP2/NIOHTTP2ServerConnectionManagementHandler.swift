@@ -351,6 +351,8 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     }
 
     public func errorCaught(context: ChannelHandlerContext, error: any Error) {
+        context.fireErrorCaught(error)
+
         if self.closeConnectionOnError(error) {
             context.close(mode: .all, promise: nil)
         }
