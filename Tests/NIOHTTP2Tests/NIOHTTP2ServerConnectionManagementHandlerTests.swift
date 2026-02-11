@@ -230,40 +230,40 @@ struct NIOHTTP2ServerConnectionManagementHandlerTests {
         try connection.waitUntilClosed()
     }
 
-    @Test("Closes on error")
-    func closesOnError() throws {
-        let connection = try Connection()
-        try connection.activate()
-
-        let streamError = NIOHTTP2Errors.noSuchStream(streamID: 42)
-        connection.channel.pipeline.fireErrorCaught(streamError)
-
-        // Closing is completed on the next loop tick, so run the loop.
-        connection.channel.embeddedEventLoop.run()
-        try connection.channel.closeFuture.wait()
-    }
-
-    @Test("Doesn't close on stream error")
-    func doesNotCloseOnStreamError() throws {
+    @Test("Doesn't close on error")
+    func doesNotCloseOnError() throws {
         let connection = try Connection(maxIdleTime: .minutes(1))
         try connection.activate()
 
-        let streamError = NIOHTTP2Errors.streamError(
-            streamID: 42,
-            baseError: NIOHTTP2Errors.streamIDTooSmall()
-        )
-        connection.channel.pipeline.fireErrorCaught(streamError)
+        // Fire an arbitrary error: `ServerConnectionManagementHandler` should just be propagating it down the pipeline
+        // and not be doing anything special.
+        connection.channel.pipeline.fireErrorCaught(TestCaseError())
+
+        // The channel should still be open.
+        #expect(connection.channel.isActive == true)
+
+        // Check the error has propagated.
+        #expect(throws: TestCaseError.self) {
+            try connection.channel.throwIfErrorCaught()
+        }
 
         // Follow a normal flow to check the connection wasn't closed.
         //
-        // Hit the max idle time.
-        connection.advanceTime(by: .minutes(1))
+        // Advance halfway through the max idle time.
+        connection.advanceTime(by: .seconds(30))
+        // Graceful shutdown shouldn't have been triggered yet.
+        #expect(try connection.readFrame() == nil)
+
+        // Now hit the max idle time.
+        connection.advanceTime(by: .seconds(30))
+
         // Follow the graceful shutdown flow.
         try self.testGracefulShutdown(connection: connection, lastStreamID: 0)
         // Closed because no streams were open.
         try connection.waitUntilClosed()
     }
 }
+
 extension NIOHTTP2ServerConnectionManagementHandlerTests {
     private func testGracefulShutdown(
         connection: Connection,
