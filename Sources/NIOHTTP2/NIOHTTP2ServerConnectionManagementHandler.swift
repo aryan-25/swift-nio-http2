@@ -241,6 +241,20 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.maxGraceTime = maxGraceTime
             self.keepalive = keepalive
         }
+
+        /// A recommended default configuration.
+        ///
+        /// This configuration enforces a 5 minute limit for active streams to finish during graceful shutdown and
+        /// sends keep-alive pings every 2 hours with a 20 second response timeout. Both maximum connection idle time
+        /// and connection age limit are disabled.
+        public static var defaults: Self {
+            Self(
+                maxIdleTime: nil,
+                maxAge: nil,
+                maxGraceTime: .minutes(5),
+                keepalive: .init(pingInterval: .hours(2), ackTimeout: .seconds(20))
+            )
+        }
     }
 
     /// Creates a new handler which manages the lifecycle of a connection.
