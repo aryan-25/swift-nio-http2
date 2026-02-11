@@ -173,7 +173,7 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     /// - Forces connection closure after 20 seconds if active streams haven't finished after graceful shutdown is
     ///   triggered;
     /// - Sends keep-alive pings every 30 seconds with a 20 second response timeout.
-    /// 
+    ///
     /// The created configuration can then be used to initialize a ``NIOHTTP2ServerConnectionManagementHandler``
     /// instance:
     ///
