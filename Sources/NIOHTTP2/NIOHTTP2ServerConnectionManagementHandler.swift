@@ -87,61 +87,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
     /// The current state of the connection.
     private var state: StateMachine
 
-    /// The clock.
-    private let clock: Clock
-
-    /// A clock providing the current time.
-    ///
-    /// This is necessary for testing where a manual clock can be used and advanced from the test.
-    /// While NIO's `EmbeddedEventLoop` provides control over its view of time (and therefore any
-    /// events scheduled on it) it doesn't offer a way to get the current time. This is usually done
-    /// via `NIODeadline`.
-    struct Clock {
-        enum Base {
-            case nio
-            case manual(Manual)
-        }
-
-        let base: Base
-
-        /// Returns the current time.
-        /// - Returns: The current time as a `NIODeadline`.
-        func now() -> NIODeadline {
-            switch self.base {
-            case .nio:
-                return .now()
-            case .manual(let clock):
-                return clock.time
-            }
-        }
-
-        /// Creates a clock using NIO's deadline mechanism.
-        static var nio: Self {
-            Self(base: .nio)
-        }
-
-        /// Creates a clock with a manual time source for testing.
-        /// - Parameter time: The manual time source.
-        /// - Returns: A clock that uses the provided manual time source.
-        static func manual(_ time: Manual) -> Self {
-            Self(base: .manual(time))
-        }
-
-        /// A manual clock for testing that allows explicit control over time.
-        final class Manual {
-            private(set) var time: NIODeadline
-
-            /// Creates a manual clock with time starting at zero.
-            init() {
-                self.time = .uptimeNanoseconds(0)
-            }
-
-            func advance(by amount: TimeAmount) {
-                self.time = self.time + amount
-            }
-        }
-    }
-
     /// Configuration parameters for ``NIOHTTP2ServerConnectionManagementHandler``.
     ///
     /// This configuration provides several ways to manage the lifetime of HTTP/2 connections:
@@ -273,7 +218,6 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
 
         self.flushPending = false
         self.inReadLoop = false
-        self.clock = .nio
 
         if let maxIdleTime = configuration.maxIdleTime {
             self.maxIdleTimerHandler = Timer(

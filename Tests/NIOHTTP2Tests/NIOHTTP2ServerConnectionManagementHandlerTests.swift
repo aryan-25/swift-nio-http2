@@ -315,21 +315,12 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
             self.channel.embeddedEventLoop
         }
 
-        private let clock: NIOHTTP2ServerConnectionManagementHandler.Clock
-
         init(
             maxIdleTime: TimeAmount? = nil,
             maxAge: TimeAmount? = nil,
             maxGraceTime: TimeAmount? = nil,
-            keepaliveConfiguration: NIOHTTP2ServerConnectionManagementHandler.Configuration.Keepalive? = nil,
-            manualClock: Bool = false
+            keepaliveConfiguration: NIOHTTP2ServerConnectionManagementHandler.Configuration.Keepalive? = nil
         ) throws {
-            if manualClock {
-                self.clock = .manual(NIOHTTP2ServerConnectionManagementHandler.Clock.Manual())
-            } else {
-                self.clock = .nio
-            }
-
             let loop = EmbeddedEventLoop()
             let handler = NIOHTTP2ServerConnectionManagementHandler(
                 eventLoop: loop,
@@ -350,13 +341,6 @@ extension NIOHTTP2ServerConnectionManagementHandlerTests {
         }
 
         func advanceTime(by delta: TimeAmount) {
-            switch self.clock.base {
-            case .nio:
-                ()
-            case .manual(let clock):
-                clock.advance(by: delta)
-            }
-
             self.loop.advanceTime(by: delta)
         }
 
