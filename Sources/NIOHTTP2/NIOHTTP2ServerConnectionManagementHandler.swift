@@ -373,15 +373,11 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
 
         let frame = self.unwrapInboundIn(data)
         switch frame.payload {
-        case .ping(let data, let ack):
-            if ack {
-                self.handlePingAck(context: context, data: data)
-            } else {
-                self.handlePing(context: context, data: data)
-            }
+        case .ping(let data, let ack) where ack == true:
+            self.handlePingAck(context: context, data: data)
 
         default:
-            ()  // Only interested in PING frames, ignore the rest.
+            ()  // Only interested in PING frames with the ACK flag set, ignore the rest.
         }
 
         context.fireChannelRead(data)
@@ -596,36 +592,6 @@ extension NIOHTTP2ServerConnectionManagementHandler {
 
         case .none:
             ()  // Already shutting down.
-        }
-    }
-
-    private func handlePing(context: ChannelHandlerContext, data: HTTP2PingData) {
-        switch self.state.receivedPing(atTime: self.clock.now(), data: data) {
-        case .enhanceYourCalmThenClose(let streamID):
-            let goAway = HTTP2Frame(
-                streamID: .rootStream,
-                payload: .goAway(
-                    lastStreamID: streamID,
-                    errorCode: .enhanceYourCalm,
-                    opaqueData: context.channel.allocator.buffer(string: "too_many_pings")
-                )
-            )
-
-            context.write(self.wrapOutboundOut(goAway), promise: nil)
-            self.maybeFlush(context: context)
-
-            // We must delay the channel close after sending the GOAWAY packet by a tick to make sure it
-            // gets flushed and delivered to the client before the connection is closed.
-            let loopBound = NIOLoopBound(context, eventLoop: context.eventLoop)
-            context.eventLoop.execute {
-                loopBound.value.close(promise: nil)
-            }
-
-        case .sendAck:
-            ()  // ACKs are sent by NIO's HTTP/2 handler, don't double ack.
-
-        case .none:
-            ()
         }
     }
 

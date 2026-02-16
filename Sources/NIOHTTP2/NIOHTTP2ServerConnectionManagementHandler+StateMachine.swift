@@ -124,46 +124,6 @@ extension NIOHTTP2ServerConnectionManagementHandler {
             return onStreamClosed
         }
 
-        enum OnPing: Equatable {
-            /// Send a GOAWAY frame with the code "enhance your calm" and immediately close the connection.
-            case enhanceYourCalmThenClose(HTTP2StreamID)
-            /// Acknowledge the ping.
-            case sendAck
-            /// Ignore the ping.
-            case none
-        }
-
-        /// Received a ping with the given data.
-        ///
-        /// - Parameters:
-        ///   - time: The time at which the ping was received.
-        ///   - data: The data sent with the ping.
-        mutating func receivedPing(atTime time: NIODeadline, data: HTTP2PingData) -> OnPing {
-            let onPing: OnPing
-
-            switch self.state {
-            case .active(let state):
-                self.state = ._modifying
-
-                onPing = .sendAck
-                self.state = .active(state)
-
-            case .closing(let state):
-                self.state = ._modifying
-
-                onPing = .sendAck
-                self.state = .closing(state)
-
-            case .closed:
-                onPing = .none
-
-            case ._modifying:
-                preconditionFailure()
-            }
-
-            return onPing
-        }
-
         enum OnPingAck: Equatable {
             /// Send a GOAWAY frame with no error and the given last stream ID, optionally closing the
             /// connection immediately afterwards.
