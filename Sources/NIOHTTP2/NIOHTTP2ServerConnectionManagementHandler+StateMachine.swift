@@ -43,11 +43,6 @@ extension NIOHTTP2ServerConnectionManagementHandler {
         /// as part of graceful shutdown.
         private let goAwayPingData: HTTP2PingData
 
-        /// Whether the connection is currently closing.
-        var isClosing: Bool {
-            self.state.isClosing
-        }
-
         /// Create a new state machine.
         ///
         /// - Parameters:
@@ -240,14 +235,5 @@ extension NIOHTTP2ServerConnectionManagementHandler.StateMachine {
         case closing(Closing)
         case closed
         case _modifying
-
-        var isClosing: Bool {
-            switch self {
-            case .closing:
-                return true
-            case .active, .closed, ._modifying:
-                return false
-            }
-        }
     }
 }
