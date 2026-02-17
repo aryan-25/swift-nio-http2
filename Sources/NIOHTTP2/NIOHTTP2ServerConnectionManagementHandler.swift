@@ -321,7 +321,10 @@ public final class NIOHTTP2ServerConnectionManagementHandler: ChannelDuplexHandl
             self.handlePingAck(context: context, data: data)
 
         default:
-            ()  // Only interested in PING frames with the ACK flag set, ignore the rest.
+            // Only interested in PING frames with the ACK flag set.
+            // NIOHTTP2Handler handles all other frames (including PING frames where the ACK flag is *not* set), so we
+            // can ignore them here.
+            ()
         }
 
         context.fireChannelRead(data)
